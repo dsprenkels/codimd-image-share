@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">CodiMD share</string>
+    <string name="app_settings">CodiMD share settings</string>
+
+    <!-- Settings -->
+    <string name="pref_header_all">All preferences</string>
+    <string name="pref_codimd_base_url_title">CodiMD base url</string>
+    <string name="pref_codimd_base_url_default">https://codimd.example.com</string>
+    <string name="pref_clipboard_copy_title">Copy URL to clipboard</string>
+    <string name="pref_clipboard_copy_summary">After uploading an image, copy the URL to the clipboard</string>
+    <string name="pref_show_notification_title">Show notification</string>
+    <string name="pref_show_notification_summary">Show a notification after succesful upload</string>
+
+</resources>
