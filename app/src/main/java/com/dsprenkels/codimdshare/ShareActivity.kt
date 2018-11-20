@@ -1,6 +1,5 @@
 package com.dsprenkels.codimdshare
 
-import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -14,9 +13,10 @@ import com.google.gson.JsonParseException
 import okhttp3.*
 import java.net.URL
 import java.io.*
-import android.content.Context.CLIPBOARD_SERVICE
 import android.widget.Toast
+import android.webkit.MimeTypeMap
 
+private const val COPY_BUFFER_SIZE = 128 * 1024
 
 class ShareActivity : AppCompatActivity() {
     private val handler = MessageHandler(this)
@@ -25,18 +25,13 @@ class ShareActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_share)
 
-        when {
-            (intent?.action != Intent.ACTION_SEND) -> {
-                Log.e(this::class.java.name, "unhandled intent action: ${intent?.action}")
-            }
-            (intent.type?.startsWith("image/") != true) -> {
-                Log.e(this::class.java.name, "unhandled intent type: ${intent?.type}")
-            }
-            else -> {
-                val task = UploadImageIntentHandler(this, intent)
-                AsyncTask.execute(task)
-            }
+
+        if (intent?.action != Intent.ACTION_SEND) {
+            Log.e(this::class.java.name, "unsupported intent action: ${intent?.action}")
+            return
         }
+        val task = UploadImageIntentHandler(this, intent)
+        AsyncTask.execute(task)
     }
 
     private fun handleUploadSuccess(message: Message) {
@@ -53,24 +48,21 @@ class ShareActivity : AppCompatActivity() {
     companion object {
         private class UploadImageIntentHandler(private val activity: ShareActivity, private val intent: Intent) : Runnable {
             private val client = OkHttpClient()
-            private val gson = Gson();
+            private val gson = Gson()
 
             override fun run() {
-                (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let { uri ->
+                (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let { fileUri ->
 
                     // Load the file
-                    val filename = uri.pathSegments.last()
+                    Log.d(this::class.java.name, "fileUri: $fileUri")
                     val parcelFD = try {
-                        activity.contentResolver.openFileDescriptor(uri, "r")
+                        activity.contentResolver.openFileDescriptor(fileUri, "r")
                     } catch (e: FileNotFoundException) {
                         e.printStackTrace()
-                        Log.e(this::class.java.name, "File at $uri not found")
+                        Log.e(this::class.java.name, "File at $fileUri not found")
                         return
                     }
                     val fd = parcelFD.fileDescriptor
-
-                    // Update UI to reflect image being shared
-                    Log.i(this::class.java.name, "fd is: $fd")
 
                     // Compose the post url
                     val preferences = PreferenceManager.getDefaultSharedPreferences(activity)
@@ -81,15 +73,18 @@ class ShareActivity : AppCompatActivity() {
                     }
                     Log.d(this::class.java.name, "Base URL: $baseUrl")
                     val url = URL("$baseUrl/uploadimage")
-                    Log.d(this::class.java.name, "Upload URL: $url")
+
+                    // Resolve file type and extension
+                    val mime = MimeTypeMap.getSingleton()
+                    val mimeType = activity.contentResolver.getType(fileUri)
+                    val extension = mime.getExtensionFromMimeType(mimeType)
+                    val mediaType = MediaType.parse(mimeType)
 
                     // Open the file and copy it to a temporary file
                     val inputStream = FileInputStream(fd)
-                    val extension = filename.substring(filename.lastIndexOf(".") + 1)
-                    val mediaType = MediaType.parse(getMimeType(extension))
                     val tempFile = File.createTempFile("codimd-share", ".$extension")
                     val outStream = tempFile.outputStream()
-                    val buffer = ByteArray(128 * 1024)
+                    val buffer = ByteArray(COPY_BUFFER_SIZE)
                     while (true) {
                         val bytesRead = inputStream.read(buffer)
                         if (bytesRead == -1) {
@@ -99,6 +94,7 @@ class ShareActivity : AppCompatActivity() {
                     }
                     inputStream.close()
                     outStream.close()
+                    Log.d(this::class.java.name, "tempFile path: ${tempFile.path} ($mediaType)")
 
                     // Do the request
                     val requestBody = MultipartBody.Builder()
@@ -112,7 +108,7 @@ class ShareActivity : AppCompatActivity() {
                     val request = Request.Builder().url(url).post(requestBody).build()
                     val response = client.newCall(request).execute()
                     if (!response.isSuccessful) {
-                        Log.e(this::class.java.name, "Upload failed, unexpected code: ${response}")
+                        Log.e(this::class.java.name, "Upload failed, unexpected code: $response")
                         return@let
                     }
 
@@ -128,19 +124,11 @@ class ShareActivity : AppCompatActivity() {
                     val messageObj = UploadSuccessMessage(uploadImageResponse.link)
                     val message = activity.handler.obtainMessage(MessageType.UPLOAD_SUCCESS.value, messageObj)
                     message.sendToTarget()
+                    Log.i(this::class.java.name, "Upload successful, received link: ${uploadImageResponse.link}")
                 }
             }
-            internal inner class UploadImageResponse private constructor(val link: String)
 
-            private fun getMimeType(extension: String): String =
-                when (extension) {
-                    "bmp" -> "image/bmp"
-                    "gif" -> "image/gif"
-                    "jpg", "jpeg" -> "image/jpeg"
-                    "png" -> "image/png"
-                    "tiff" -> "image/tiff"
-                    else -> "application/octet-stream"
-                }
+            internal inner class UploadImageResponse private constructor(val link: String)
         }
 
         class MessageHandler(val parent: ShareActivity) : Handler() {
@@ -155,6 +143,7 @@ class ShareActivity : AppCompatActivity() {
         enum class MessageType(val value: Int) {
             UPLOAD_SUCCESS(1)
         }
-        class UploadSuccessMessage(val link: String)
+
+        private class UploadSuccessMessage(val link: String)
     }
 }
