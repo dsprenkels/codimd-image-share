@@ -55,16 +55,17 @@ class ShareActivity : AppCompatActivity() {
     }
 
     private fun showNotification(msg: UploadSuccessMessage) {
+        val requestCode = msg.link.hashCode() // 32 bit integer, should be reasonably unique
         val copyIntent = Intent(this, CopyToClipboardReceiver::class.java).apply {
             action = ACTION_COPY_TO_CLIPBOARD
             putExtra(EXTRA_LINK, msg.link)
         }
-        val pendingCopyIntent: PendingIntent = PendingIntent.getBroadcast(this, 0, copyIntent, 0)
+        val pendingCopyIntent: PendingIntent = PendingIntent.getBroadcast(this, requestCode, copyIntent, 0)
         val browserIntent = Intent(this, OpenBrowserReceiver::class.java).apply {
             action = ACTION_OPEN_LINK
             putExtra(EXTRA_LINK, msg.link)
         }
-        val pendingBrowserIntent: PendingIntent = PendingIntent.getBroadcast(this, 0, browserIntent, 0)
+        val pendingBrowserIntent: PendingIntent = PendingIntent.getBroadcast(this, requestCode, browserIntent, 0)
         val notification = NotificationCompat.Builder(this, "codimd-share-channel").apply {
             setSmallIcon(R.drawable.ic_file_upload)
             setContentTitle(getString(R.string.notification_upload_success))
@@ -91,7 +92,9 @@ class ShareActivity : AppCompatActivity() {
                 Log.e(this::class.java.name, "intent extra is null: ${extra}")
                 return
             }
-            copyToClipBoard(ctx!!, extra as String)
+            val link = extra as String
+            Log.d(this::class.java.name, "Copying to clipboard: $link")
+            copyToClipBoard(ctx!!, link)
         }
     }
 
@@ -107,8 +110,9 @@ class ShareActivity : AppCompatActivity() {
                 Log.e(this::class.java.name, "intent extra is null: ${extra}")
                 return
             }
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(extra as String))
-            ctx!!.startActivity(intent)
+            val link = extra as String
+            Log.d(this::class.java.name, "Opening in browser: $link")
+            ctx!!.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
         }
     }
 
