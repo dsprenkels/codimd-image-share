@@ -2,6 +2,8 @@ package com.dsprenkels.codimdshare
 
 import android.app.PendingIntent
 import android.content.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.*
 import android.preference.PreferenceManager
@@ -18,11 +20,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.net.URL
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
-import android.content.Intent
-
-
 
 
 private const val COPY_BUFFER_SIZE = 128 * 1024
@@ -89,7 +86,7 @@ class ShareActivity : AppCompatActivity() {
             }
             val extra = intent.extras.get(EXTRA_LINK)
             if (extra == null) {
-                Log.e(this::class.java.name, "intent extra is null: ${extra}")
+                Log.e(this::class.java.name, "intent extra is null: $extra")
                 return
             }
             val link = extra as String
@@ -107,7 +104,7 @@ class ShareActivity : AppCompatActivity() {
             }
             val extra = intent.extras.get(EXTRA_LINK)
             if (extra == null) {
-                Log.e(this::class.java.name, "intent extra is null: ${extra}")
+                Log.e(this::class.java.name, "intent extra is null: $extra")
                 return
             }
             val link = extra as String

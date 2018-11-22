@@ -18,7 +18,7 @@ class SettingsActivity : AppCompatPreferenceActivity(), SharedPreferences.OnShar
         super.onCreate(savedInstanceState)
 
         // Set the default values (if not set)
-        PreferenceManager.setDefaultValues(this, R.xml.pref_all, false);
+        PreferenceManager.setDefaultValues(this, R.xml.pref_all, false)
 
         // Handle preference change events
         val preferences = PreferenceManager.getDefaultSharedPreferences(this)
@@ -30,12 +30,12 @@ class SettingsActivity : AppCompatPreferenceActivity(), SharedPreferences.OnShar
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
         if (key == "base_url") {
-            val value = sharedPreferences.getString(key, null)!!;
+            val value = sharedPreferences.getString(key, null)!!
 
             // Prepend "https://" if needed
             if (!value.startsWith("https://", true) && !value.startsWith("http://", true)) {
                 val newValue = "https://$value"
-                Log.i(this::class.java.name,"Setting $key preference to $newValue (added 'https://')")
+                Log.i(this::class.java.name, "Setting $key preference to $newValue (added 'https://')")
                 sharedPreferences.edit().putString(key, newValue).apply()
             }
         }
@@ -80,7 +80,7 @@ class SettingsActivity : AppCompatPreferenceActivity(), SharedPreferences.OnShar
         }
 
         private fun bindPreferenceSummaryToValue(bindPreference: Preference) {
-            bindPreference.setOnPreferenceChangeListener{ preference: Preference?, newValue: Any? ->
+            bindPreference.setOnPreferenceChangeListener { preference: Preference?, newValue: Any? ->
                 preference?.summary = newValue.toString()
                 Log.i(this::class.java.name, "Setting changed to $newValue")
                 true
