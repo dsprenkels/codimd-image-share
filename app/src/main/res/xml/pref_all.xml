@@ -12,6 +12,12 @@
         />
 
     <SwitchPreference
+        android:key="clipboard_copy"
+        android:title="@string/pref_clipboard_copy_title"
+        android:summary="@string/pref_clipboard_copy_summary"
+        android:defaultValue="false"/>
+
+    <SwitchPreference
         android:key="show_notification"
         android:title="@string/pref_show_notification_title"
         android:summary="@string/pref_show_notification_summary"

@@ -33,6 +33,8 @@
                 <data android:mimeType="audio/*" />
             </intent-filter>
         </activity>
+        <receiver android:name=".ShareActivity$CopyToClipboardReceiver" />
+        <receiver android:name=".ShareActivity$OpenBrowserReceiver" />
     </application>
 
 </manifest>

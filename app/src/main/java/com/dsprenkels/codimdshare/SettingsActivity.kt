@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.preference.*
 import android.util.Log
-import java.util.logging.Logger
 
 
 /**
