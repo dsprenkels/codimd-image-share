@@ -35,6 +35,7 @@
                 <data android:mimeType="text/*" />
                 <data android:mimeType="video/*" />
                 <data android:mimeType="audio/*" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
 
