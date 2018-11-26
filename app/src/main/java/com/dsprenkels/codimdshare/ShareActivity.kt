@@ -22,8 +22,6 @@ import java.io.FileNotFoundException
 import java.net.URL
 
 
-private const val COPY_BUFFER_SIZE = 128 * 1024
-
 class ShareActivity : AppCompatActivity() {
     private val handler = MessageHandler(this)
 
@@ -124,6 +122,7 @@ class ShareActivity : AppCompatActivity() {
         const val ACTION_COPY_TO_CLIPBOARD = "copy_to_clipboard"
         const val ACTION_OPEN_LINK = "copy_to_clipboard"
         const val EXTRA_LINK = "link"
+        private const val COPY_BUFFER_SIZE = 128 * 1024
 
         private fun copyToClipBoard(ctx: Context, link: String) {
             val clipData = ClipData.newUri(null, link, Uri.parse(link))
@@ -201,6 +200,8 @@ class ShareActivity : AppCompatActivity() {
                     }
 
                     // Decode the response
+                    class UploadImageResponse private constructor(val link: String)
+
                     val uploadImageResponse = try {
                         gson.fromJson(response.body()?.string(), UploadImageResponse::class.java)
                     } catch (e: JsonParseException) {
@@ -215,8 +216,6 @@ class ShareActivity : AppCompatActivity() {
                     Log.i(this::class.java.name, "Upload successful, received link: ${uploadImageResponse.link}")
                 }
             }
-
-            internal inner class UploadImageResponse private constructor(val link: String)
         }
 
         class MessageHandler(val parent: ShareActivity) : Handler() {
