@@ -131,7 +131,7 @@ class ShareActivity : AppCompatActivity() {
                 Log.e(this::class.java.name, "unsupported intent action: ${intent?.action}")
                 return
             }
-            val extra = intent.extras.get(EXTRA_LINK)
+            val extra = intent.extras?.get(EXTRA_LINK)
             if (extra == null) {
                 Log.e(this::class.java.name, "intent extra is null: $extra")
                 return
@@ -149,7 +149,7 @@ class ShareActivity : AppCompatActivity() {
                 Log.e(this::class.java.name, "unsupported intent action: ${intent?.action}")
                 return
             }
-            val extra = intent.extras.get(EXTRA_LINK)
+            val extra = intent.extras?.get(EXTRA_LINK)
             if (extra == null) {
                 Log.e(this::class.java.name, "intent extra is null: $extra")
                 return
@@ -233,7 +233,7 @@ class ShareActivity : AppCompatActivity() {
 
                     // Resolve file type and extension
                     val mime = MimeTypeMap.getSingleton()
-                    val mimeType = activity.contentResolver.getType(fileUri)
+                    val mimeType = activity.contentResolver.getType(fileUri)!!
                     val extension = mime.getExtensionFromMimeType(mimeType)
                     val mediaType = MediaType.parse(mimeType)
 
