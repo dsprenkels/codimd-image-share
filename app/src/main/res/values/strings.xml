@@ -9,9 +9,19 @@
     <string name="pref_clipboard_copy_title">Copy URL to clipboard</string>
     <string name="pref_clipboard_copy_summary">After uploading an image, immediately copy the URL to the clipboard</string>
     <string name="pref_show_notification_title">Show notification</string>
-    <string name="pref_show_notification_summary">Show a notification after succesful upload</string>
+    <string name="pref_show_notification_summary">Show a notification after successful upload</string>
 
     <!-- Notification strings -->
     <string name="notification_upload_success">Upload successful</string>
+    <string name="notification_upload_fail">Upload failed</string>
     <string name="notification_copy_clipboard">Copy to clipboard</string>
+    <string name="notification_open_settings">Open settings</string>
+    <string name="notification_error_base_url_undefined">Error: base url is undefined</string>
+    <string name="notification_error_io_exception">Error: IO failed (%s)</string>
+    <string name="notification_error_bad_status_code">Error: Bad status code (%d)</string>
+    <string name="notification_error_malformed_response">Error: Could not decode JSON (%s)</string>
+
+    BASE_URL_UNDEFINED(1),
+    BAD_STATUS_CODE(2),
+    MALFORMED_RESPONSE(3),
 </resources>

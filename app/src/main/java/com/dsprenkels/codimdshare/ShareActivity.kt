@@ -19,6 +19,7 @@ import okhttp3.*
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.net.URL
 
 
@@ -45,12 +46,16 @@ class ShareActivity : AppCompatActivity() {
         if (preferences.getBoolean("show_notification", true)) {
             showNotification(msg)
         }
+        this.finish()
+    }
 
+    private fun handleUploadFail(msg: UploadFailMessage) {
+        showNotification(msg)
         this.finish()
     }
 
     private fun showNotification(msg: UploadSuccessMessage) {
-        val requestCode = msg.link.hashCode() // 32 bit integer, should be reasonably unique
+        val requestCode = msg.link.hashCode()
         val copyIntent = Intent(this, CopyToClipboardReceiver::class.java).apply {
             action = ACTION_COPY_TO_CLIPBOARD
             putExtra(EXTRA_LINK, msg.link)
@@ -60,7 +65,7 @@ class ShareActivity : AppCompatActivity() {
             action = ACTION_OPEN_LINK
             putExtra(EXTRA_LINK, msg.link)
         }
-        val pendingBrowserIntent: PendingIntent = PendingIntent.getBroadcast(this, requestCode, browserIntent, 0)
+        val pendingBrowserIntent = PendingIntent.getBroadcast(this, requestCode, browserIntent, 0)
         val notification = NotificationCompat.Builder(this, "codimd-share-channel").apply {
             setSmallIcon(R.drawable.ic_file_upload)
             setContentTitle(getString(R.string.notification_upload_success))
@@ -72,6 +77,50 @@ class ShareActivity : AppCompatActivity() {
         }.build()
         NotificationManagerCompat.from(this).apply {
             notify(NOTIFICATION_ID_UPLOAD_SUCCESS, notification)
+        }
+    }
+
+    private fun showNotification(msg: UploadFailMessage) {
+        val requestCode = msg.javaClass.hashCode()
+        val openSettingsIntent = Intent(this, OpenSettingsReceiver::class.java).apply {
+            action = ACTION_OPEN_SETTINGS
+        }
+        val pendingOpenSettingsIntent = PendingIntent.getBroadcast(this, requestCode, openSettingsIntent, 0)
+
+        val notification = NotificationCompat.Builder(this, "codimd-share-channel").apply {
+            setSmallIcon((R.drawable.ic_file_upload))
+            setContentTitle(getString(R.string.notification_upload_fail))
+            setContentText(
+                when (msg.errorType) {
+                    UploadErrorType.BASE_URL_UNDEFINED -> getString(R.string.notification_error_base_url_undefined)
+                    UploadErrorType.IO_EXCEPTION -> getString(
+                        R.string.notification_error_io_exception,
+                        msg.ioException?.message
+                    )
+                    UploadErrorType.MALFORMED_RESPONSE -> getString(
+                        R.string.notification_error_malformed_response,
+                        msg.response?.body()
+                    )
+                    UploadErrorType.BAD_STATUS_CODE -> getString(
+                        R.string.notification_error_bad_status_code,
+                        msg.response?.code()
+                    )
+                }
+            )
+            priority = NotificationCompat.PRIORITY_DEFAULT
+            setCategory(NotificationCompat.CATEGORY_ERROR)
+            if (msg.file !== null) {
+                setLargeIcon(loadBitmap(msg.file))
+            }
+            addAction(
+                R.drawable.ic_open_settings,
+                getString(R.string.notification_open_settings),
+                pendingOpenSettingsIntent
+            )
+            setAutoCancel(true)
+        }.build()
+        NotificationManagerCompat.from(this).apply {
+            notify(NOTIFICATION_ID_UPLOAD_FAIL, notification)
         }
     }
 
@@ -111,6 +160,22 @@ class ShareActivity : AppCompatActivity() {
         }
     }
 
+    class OpenSettingsReceiver : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            Log.d(this::class.java.name, "onReceive was called")
+            if (intent?.action != ACTION_OPEN_SETTINGS) {
+                Log.e(this::class.java.name, "unsupported intent action: ${intent?.action}")
+                return
+            }
+            Log.d(this::class.java.name, "Starting SettingsActivity")
+            ctx!!.startActivity(Intent(ctx, SettingsActivity::class.java))
+            // Remove the notification now
+            NotificationManagerCompat.from(ctx).apply {
+                cancel(NOTIFICATION_ID_UPLOAD_FAIL)
+            }
+        }
+    }
+
     private fun loadBitmap(file: File): Bitmap? {
         val options = BitmapFactory.Options()
         options.inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -119,8 +184,10 @@ class ShareActivity : AppCompatActivity() {
 
     companion object {
         const val NOTIFICATION_ID_UPLOAD_SUCCESS = 1
+        const val NOTIFICATION_ID_UPLOAD_FAIL = 2
         const val ACTION_COPY_TO_CLIPBOARD = "copy_to_clipboard"
         const val ACTION_OPEN_LINK = "copy_to_clipboard"
+        const val ACTION_OPEN_SETTINGS = "open_settings"
         const val EXTRA_LINK = "link"
         private const val COPY_BUFFER_SIZE = 128 * 1024
 
@@ -147,7 +214,7 @@ class ShareActivity : AppCompatActivity() {
                     } catch (e: FileNotFoundException) {
                         e.printStackTrace()
                         Log.e(this::class.java.name, "File at $fileUri not found")
-                        return
+                        return@let
                     }
                     val fd = parcelFD.fileDescriptor
 
@@ -156,7 +223,10 @@ class ShareActivity : AppCompatActivity() {
                     val baseUrl = preferences.getString("base_url", null)
                     if (baseUrl == null) {
                         Log.e(this::class.java.name, "Base URL not set")
-                        return
+                        val messageObj = UploadFailMessage(UploadErrorType.BASE_URL_UNDEFINED)
+                        val message = activity.handler.obtainMessage(MessageType.UPLOAD_FAIL.value, messageObj)
+                        message.sendToTarget()
+                        return@let
                     }
                     Log.d(this::class.java.name, "Base URL: $baseUrl")
                     val url = URL("$baseUrl/uploadimage")
@@ -193,19 +263,32 @@ class ShareActivity : AppCompatActivity() {
                         .build()
                     // TODO(dsprenkels) Provide a user agent in the headers
                     val request = Request.Builder().url(url).post(requestBody).build()
-                    val response = client.newCall(request).execute()
+                    val response = try {
+                        client.newCall(request).execute()
+                    } catch (error: IOException) {
+                        Log.e(this::class.java.name, "Upload failed, request error: $error")
+                        val messageObj = UploadFailMessage(UploadErrorType.IO_EXCEPTION, tempFile, ioException = error)
+                        val message = activity.handler.obtainMessage(MessageType.UPLOAD_FAIL.value, messageObj)
+                        message.sendToTarget()
+                        return@let
+                    }
                     if (!response.isSuccessful) {
                         Log.e(this::class.java.name, "Upload failed, unexpected code: $response")
+                        val messageObj = UploadFailMessage(UploadErrorType.BAD_STATUS_CODE, tempFile, null, response)
+                        val message = activity.handler.obtainMessage(MessageType.UPLOAD_FAIL.value, messageObj)
+                        message.sendToTarget()
                         return@let
                     }
 
                     // Decode the response
-                    class UploadImageResponse private constructor(val link: String)
-
                     val uploadImageResponse = try {
                         gson.fromJson(response.body()?.string(), UploadImageResponse::class.java)
                     } catch (e: JsonParseException) {
-                        Log.e(this::class.java.name, "Unexpected upload response: ${response.body().toString()}", e)
+                        Log.e(this::class.java.name, "Malformed upload response: ${response.body().toString()}", e)
+                        val messageObj =
+                            UploadFailMessage(UploadErrorType.MALFORMED_RESPONSE, tempFile, response = response)
+                        val message = activity.handler.obtainMessage(MessageType.UPLOAD_FAIL.value, messageObj)
+                        message.sendToTarget()
                         return@let
                     }
 
@@ -218,19 +301,36 @@ class ShareActivity : AppCompatActivity() {
             }
         }
 
+        class UploadImageResponse private constructor(val link: String)
+
         class MessageHandler(val parent: ShareActivity) : Handler() {
             override fun handleMessage(message: Message?) {
                 when (message?.what) {
                     MessageType.UPLOAD_SUCCESS.value -> parent.handleUploadSuccess(message.obj as UploadSuccessMessage)
+                    MessageType.UPLOAD_FAIL.value -> parent.handleUploadFail(message.obj as UploadFailMessage)
                     else -> super.handleMessage(message)
                 }
             }
         }
 
         enum class MessageType(val value: Int) {
-            UPLOAD_SUCCESS(1)
+            UPLOAD_SUCCESS(1),
+            UPLOAD_FAIL(2),
+        }
+
+        enum class UploadErrorType(val value: Int) {
+            BASE_URL_UNDEFINED(1),
+            IO_EXCEPTION(2),
+            BAD_STATUS_CODE(3),
+            MALFORMED_RESPONSE(4),
         }
 
         private class UploadSuccessMessage(val link: String, val file: File)
+        private class UploadFailMessage(
+            val errorType: UploadErrorType,
+            val file: File? = null,
+            val ioException: IOException? = null,
+            val response: Response? = null
+        )
     }
 }

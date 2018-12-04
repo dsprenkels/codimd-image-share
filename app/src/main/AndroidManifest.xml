@@ -41,6 +41,7 @@
 
         <receiver android:name=".ShareActivity$CopyToClipboardReceiver" />
         <receiver android:name=".ShareActivity$OpenBrowserReceiver" />
+        <receiver android:name=".ShareActivity$OpenSettingsReceiver" />
     </application>
 
 </manifest>
